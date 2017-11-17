@@ -1,0 +1,49 @@
+---
+- hosts: all
+  vars:
+    username: "username"
+    password: "*********"
+  tasks:
+    - name: Upgrade packages
+      apt: upgrade=safe
+
+    - name: Install base packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      with_items:
+        - fail2ban
+        - iptables-persistent
+
+    - name: Add non-root user
+      user:
+        name: "{{ username }}"
+        password: "{{ password }}"
+        shell: /bin/bash
+        update_password: on_create
+        state: present
+
+    - name: Disable root login
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^PermitRootLogin"
+        line: "PermitRootLogin no"
+        state: present
+
+    - name: Restart ssh service
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Add iptables v4 rules
+      action: copy src=iptables.rules dest=/etc/iptables/rules.v4 owner=root group=root mode=0644
+
+    - name: Add iptables v6 rules
+      action: copy src=iptables.rules dest=/etc/iptables/rules.v6 owner=root group=root mode=0644
+
+    - name: Restart iptables-persistent service
+      service: 
+        name: netfilter-persistent
+        state: restarted
+
